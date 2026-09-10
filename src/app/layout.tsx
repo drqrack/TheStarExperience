@@ -22,6 +22,8 @@ export const viewport: Viewport = {
   themeColor: '#0A0A0A',
 };
 
+import { GlobalBackground } from '@/components/GlobalBackground';
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -30,6 +32,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark bg-[#0A0A0A]">
       <body className="min-h-screen bg-[#0A0A0A] text-white antialiased selection:bg-star-gold selection:text-black">
+        <GlobalBackground />
         <Providers>{children}</Providers>
       </body>
     </html>
