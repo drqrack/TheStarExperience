@@ -1,10 +1,11 @@
 'use client';
 
-import React, { Suspense, useEffect } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { QrCode, Music, Calendar, MapPin, ArrowRight, Shield } from 'lucide-react';
+import { QrCode, Music, Calendar, MapPin, ArrowRight, Shield, AlertTriangle } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
+import { getTable } from '@/lib/api';
 
 function WelcomeContent() {
   const searchParams = useSearchParams();
@@ -12,13 +13,38 @@ function WelcomeContent() {
 
   const tableParam = searchParams.get('table');
 
+  const [tableError, setTableError] = useState<string | null>(null);
+
   useEffect(() => {
-    if (tableParam) {
+    if (tableParam && tableParam !== tableNumber) {
       setTableNumber(tableParam);
     }
-  }, [tableParam, setTableNumber]);
+  }, [tableParam, tableNumber, setTableNumber]);
 
   const activeTable = tableParam || tableNumber || '12';
+
+  // Validate table against backend
+  useEffect(() => {
+    let isCancelled = false;
+    async function validateTable() {
+      try {
+        const table = await getTable(activeTable);
+        if (!isCancelled) {
+          if (!table) {
+            setTableError(`Table ${activeTable} not found. Please scan a valid QR code.`);
+          } else {
+            setTableError(null);
+          }
+        }
+      } catch {
+        // Silently ignore network errors on welcome page — don't block the customer
+      }
+    }
+    validateTable();
+    return () => {
+      isCancelled = true;
+    };
+  }, [activeTable]);
 
   return (
     <main className="min-h-screen bg-[#0A0A0A] flex flex-col justify-between text-white relative overflow-hidden">
@@ -53,6 +79,16 @@ function WelcomeContent() {
           </Link>
         </div>
       </header>
+
+      {/* Table validation warning */}
+      {tableError && (
+        <div className="relative z-10 w-full px-6 py-3 bg-red-900/20 border-b border-red-900/40">
+          <div className="max-w-lg mx-auto flex items-center gap-2 text-xs text-red-300">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <span>{tableError}</span>
+          </div>
+        </div>
+      )}
 
       {/* Hero Body */}
       <div className="relative z-10 max-w-lg mx-auto w-full px-6 py-10 flex-1 flex flex-col items-center justify-center text-center">

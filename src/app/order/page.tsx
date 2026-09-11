@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { EventHeader } from '@/components/customer/EventHeader';
 import { CustomerForm } from '@/components/customer/CustomerForm';
@@ -10,8 +10,9 @@ import { CartButton } from '@/components/customer/CartButton';
 import { CartDrawer } from '@/components/customer/CartDrawer';
 import { useCart } from '@/context/CartContext';
 import { ItemCategory, MenuItem } from '@/types';
-import { getMenu } from '@/lib/api';
+import { getMenu, getTable, ApiError as ApiErrorClass } from '@/lib/api';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { ApiError } from '@/components/ui/ApiError';
 import { Search, UserCheck, Edit3 } from 'lucide-react';
 
 function OrderPageContent() {
@@ -20,6 +21,10 @@ function OrderPageContent() {
 
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [isLoadingMenu, setIsLoadingMenu] = useState<boolean>(true);
+  const [menuError, setMenuError] = useState<string | null>(null);
+  const [isConnectionError, setIsConnectionError] = useState<boolean>(false);
+  const [tableError, setTableError] = useState<string | null>(null);
+  const [isValidatingTable, setIsValidatingTable] = useState<boolean>(false);
   const [selectedCategory, setSelectedCategory] = useState<ItemCategory>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showCustomerFormModal, setShowCustomerFormModal] = useState<boolean>(false);
@@ -33,21 +38,62 @@ function OrderPageContent() {
     }
   }, [tableParam, tableNumber, setTableNumber]);
 
-  // Load menu items
+  const activeTable = tableParam || tableNumber;
+
+  // Validate table against backend
   useEffect(() => {
-    async function load() {
-      setIsLoadingMenu(true);
+    if (!activeTable) return;
+
+    let isCancelled = false;
+    async function validateTable() {
+      setIsValidatingTable(true);
       try {
-        const items = await getMenu();
-        setMenuItems(items);
+        const table = await getTable(activeTable);
+        if (!isCancelled) {
+          if (!table) {
+            setTableError(`Table ${activeTable} was not found. Please scan a valid QR code.`);
+          } else {
+            setTableError(null);
+          }
+        }
       } catch (err) {
-        console.error('Failed to load menu:', err);
+        console.error('Table validation failed:', err);
       } finally {
-        setIsLoadingMenu(false);
+        if (!isCancelled) {
+          setIsValidatingTable(false);
+        }
       }
     }
-    load();
+    validateTable();
+    return () => {
+      isCancelled = true;
+    };
+  }, [activeTable]);
+
+  // Load menu items from backend
+  const loadMenu = useCallback(async () => {
+    setIsLoadingMenu(true);
+    setMenuError(null);
+    setIsConnectionError(false);
+    try {
+      const items = await getMenu();
+      setMenuItems(items);
+    } catch (err) {
+      console.error('Failed to load menu:', err);
+      if (err instanceof ApiErrorClass) {
+        setIsConnectionError(err.status === 0);
+        setMenuError(err.message);
+      } else {
+        setMenuError('An unexpected error occurred while loading the menu.');
+      }
+    } finally {
+      setIsLoadingMenu(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadMenu();
+  }, [loadMenu]);
 
   // Determine if customer details are already provided
   const hasCustomerDetails = Boolean(customerInfo.name && customerInfo.phone);
@@ -82,6 +128,16 @@ function OrderPageContent() {
     <div className="min-h-screen bg-[#0A0A0A] flex flex-col text-white pb-16">
       {/* Event Header */}
       <EventHeader />
+
+      {/* Table Error Banner */}
+      {tableError && (
+        <div className="bg-red-900/20 border-b border-red-900/40 px-4 py-3">
+          <div className="max-w-4xl mx-auto flex items-center gap-2 text-xs text-red-300">
+            <span className="font-bold">⚠ Table Error:</span>
+            <span>{tableError}</span>
+          </div>
+        </div>
+      )}
 
       {/* Customer Bar & Quick Edit */}
       <div className="bg-[#121212] border-b border-[#222222] px-4 py-2.5">
@@ -127,11 +183,22 @@ function OrderPageContent() {
           />
         </div>
 
-        {/* Menu Grid */}
+        {/* Menu Content */}
         {isLoadingMenu ? (
           <div className="py-20 flex justify-center">
             <LoadingSpinner size="lg" text="Loading authentic menu..." />
           </div>
+        ) : menuError ? (
+          <ApiError
+            message={menuError}
+            onRetry={loadMenu}
+            isConnectionError={isConnectionError}
+          />
+        ) : menuItems.length === 0 ? (
+          <ApiError
+            title="Menu Unavailable"
+            message="The menu is currently empty. Please check back shortly or ask your server for assistance."
+          />
         ) : (
           <MenuGrid
             items={menuItems}

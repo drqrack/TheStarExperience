@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useCallback } from 'react';
 import { CartItem, CustomerInfo, MenuItem } from '@/types';
 
 interface CartContextType {
@@ -73,15 +73,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
 
-  const setTableNumber = (table: string) => {
+  const setTableNumber = useCallback((table: string) => {
     setTableNumberState(table);
     setCustomerInfoState((prev) => ({ ...prev, tableNumber: table }));
     if (typeof window !== 'undefined') {
       localStorage.setItem(STORAGE_TABLE_KEY, table);
     }
-  };
+  }, []);
 
-  const setCustomerInfo = (info: CustomerInfo) => {
+  const setCustomerInfo = useCallback((info: CustomerInfo) => {
     setCustomerInfoState(info);
     if (typeof window !== 'undefined') {
       localStorage.setItem(STORAGE_CUSTOMER_KEY, JSON.stringify(info));
@@ -89,14 +89,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem(STORAGE_TABLE_KEY, info.tableNumber.toString());
       }
     }
-  };
+  }, []);
 
-  const setOrderNotes = (notes: string) => {
+  const setOrderNotes = useCallback((notes: string) => {
     setOrderNotesState(notes);
     if (typeof window !== 'undefined') {
       localStorage.setItem(STORAGE_NOTES_KEY, notes);
     }
-  };
+  }, []);
 
   const saveCartItems = (newItems: CartItem[]) => {
     setItems(newItems);

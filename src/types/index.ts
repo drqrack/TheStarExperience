@@ -53,3 +53,28 @@ export interface CustomerInfo {
   phone: string;
   tableNumber: string | number;
 }
+
+// ─── Backend API Response Types ───────────────────────────────────
+// These mirror the FastAPI Pydantic schemas (MenuItemResponse, MenuCategoryResponse, TableResponse)
+
+export interface ApiMenuItemResponse {
+  id: number;
+  name: string;
+  description: string | null;
+  price: number;
+  is_available: boolean;
+  category_id: number;
+}
+
+export interface ApiMenuCategoryResponse {
+  id: number;
+  name: string;
+  description: string | null;
+  items: ApiMenuItemResponse[];
+}
+
+export interface ApiTableResponse {
+  id: number;
+  table_number: string;
+  capacity: number | null;
+}
